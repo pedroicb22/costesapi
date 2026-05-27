@@ -514,7 +514,7 @@ export default function App() {
       {/* Header */}
       <header className="app-header">
         <div className="logo-section">
-          <img src="/favicon.svg" alt="Costes API logo" />
+          <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="Costes API logo" />
           <div>
             <h1>Costes API Modelos</h1>
           </div>
