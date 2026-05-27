@@ -417,7 +417,7 @@ export default function App() {
         <div className="logo-section">
           <img src="https://models.dev/logos/openai.svg" alt="Models.dev logo" onError={handleImageError} />
           <div>
-            <h1>Models.dev Cost</h1>
+            <h1>Costes API Modelos</h1>
           </div>
         </div>
 
@@ -1349,6 +1349,24 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* Footer */}
+      <footer style={{
+        textAlign: 'center',
+        padding: '0.85rem 1rem',
+        fontSize: '0.82rem',
+        color: 'var(--text-muted)',
+        background: 'rgba(255,255,255,0.015)',
+        borderTop: '1px solid rgba(255,255,255,0.05)',
+        backdropFilter: 'blur(6px)',
+        letterSpacing: '0.01em',
+      }}>
+        Datos proporcionados por{' '}
+        <a href="https://models.dev/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>models.dev</a>
+        {' '}·{' '}
+        repositorio{' '}
+        <a href="https://github.com/anomalyco/models.dev" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}>anomalyco/models.dev</a>
+      </footer>
 
       {/* Model Specifications Slide-over (Modal) */}
       {selectedModelDetails && (
