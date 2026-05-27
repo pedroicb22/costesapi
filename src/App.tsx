@@ -566,6 +566,19 @@ export default function App() {
 
         {/* Mobile Header Actions */}
         <div className="mobile-header-actions">
+          {/* Simple / Complete mode toggle on Mobile */}
+          <div className="mode-toggle-wrapper" title={isSimpleMode ? 'Cambiar a Versión Completa' : 'Cambiar a Versión Simple'}>
+            <span className={`mode-label ${!isSimpleMode ? 'active-label' : ''}`}>Completa</span>
+            <button
+              className={`mode-toggle ${isSimpleMode ? 'simple' : 'complete'}`}
+              onClick={() => toggleSimpleMode(!isSimpleMode)}
+              aria-label="Cambiar modo"
+            >
+              <span className="mode-toggle-thumb" />
+            </button>
+            <span className={`mode-label ${isSimpleMode ? 'active-label' : ''}`}>Simple</span>
+          </div>
+
           <button className="mobile-filter-toggle" onClick={() => setIsSidebarOpen(true)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="4" y1="21" x2="4" y2="14"></line>
