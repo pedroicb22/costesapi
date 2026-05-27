@@ -514,7 +514,7 @@ export default function App() {
       {/* Header */}
       <header className="app-header">
         <div className="logo-section">
-          <img src="https://models.dev/logos/openai.svg" alt="Models.dev logo" onError={handleImageError} />
+          <img src="/favicon.svg" alt="Costes API logo" />
           <div>
             <h1>Costes API Modelos</h1>
           </div>
