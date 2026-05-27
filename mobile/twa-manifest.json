@@ -1,0 +1,43 @@
+{
+  "packageId": "com.anomalyco.modelsdev",
+  "host": "models.dev",
+  "name": "Models.dev Cost Comparator",
+  "launcherName": "ModelsDev",
+  "display": "standalone",
+  "themeColor": "#070709",
+  "themeColorDark": "#070709",
+  "navigationColor": "#070709",
+  "navigationColorDark": "#070709",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#070709",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "http://localhost:4173/icon-512.png",
+  "maskableIconUrl": "http://localhost:4173/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 2,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "http://localhost:4173/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "displayOverride": [],
+  "appVersion": "1.0.0"
+}
