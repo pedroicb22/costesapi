@@ -140,9 +140,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isLive, setIsLive] = useState<boolean>(true);
 
-  // Simple/Complete mode toggle (persisted in localStorage)
+  // Simple/Complete mode toggle (persisted in localStorage, defaults to true)
   const [isSimpleMode, setIsSimpleMode] = useState<boolean>(() => {
-    return localStorage.getItem('costes-api-simple-mode') === 'true';
+    const saved = localStorage.getItem('costes-api-simple-mode');
+    return saved === null ? true : saved === 'true';
   });
 
   // Tabs: 'explorer' | 'comparison' | 'analytics'
