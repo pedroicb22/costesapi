@@ -93,6 +93,45 @@ interface FlattenedModel {
   status?: string;
 }
 
+// ============================================================
+// SIMPLE_PROVIDERS — IDs de proveedores para la versión simple
+// Usa provider-selector.html para elegirlos y pegar el array aquí.
+// Si el array está vacío, el modo simple mostrará TODOS los proveedores.
+// ============================================================
+const SIMPLE_PROVIDERS: string[] = [
+  "302ai",
+  "abacus",
+  "alibaba",
+  "alibaba-coding-plan",
+  "amazon-bedrock",
+  "anthropic",
+  "azure",
+  "cerebras",
+  "deepseek",
+  "github-models",
+  "google",
+  "groq",
+  "huggingface",
+  "kilo",
+  "kimi-for-coding",
+  "llama",
+  "lmstudio",
+  "minimax",
+  "minimax-coding-plan",
+  "mistral",
+  "nvidia",
+  "ollama-cloud",
+  "openai",
+  "openrouter",
+  "perplexity",
+  "poe",
+  "xai",
+  "xiaomi",
+  "xiaomi-token-plan-ams",
+  "zai",
+  "zai-coding-plan"
+];
+
 export default function App() {
   // Application State
   const [allModels, setAllModels] = useState<FlattenedModel[]>([]);
@@ -100,6 +139,11 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isLive, setIsLive] = useState<boolean>(true);
+
+  // Simple/Complete mode toggle (persisted in localStorage)
+  const [isSimpleMode, setIsSimpleMode] = useState<boolean>(() => {
+    return localStorage.getItem('costes-api-simple-mode') === 'true';
+  });
 
   // Tabs: 'explorer' | 'comparison' | 'analytics'
   const [activeTab, setActiveTab] = useState<'explorer' | 'comparison' | 'analytics'>('explorer');
@@ -115,7 +159,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
   // Sorting
-  const [sortBy, setSortBy] = useState<'simulatedCost' | 'inputCost' | 'outputCost' | 'context' | 'releaseDate'>('simulatedCost');
+  const [sortBy, setSortBy] = useState<'simulatedCost' | 'inputCost' | 'outputCost' | 'context' | 'releaseDate'>('releaseDate');
 
   // Cost Simulator Inputs
   const [simulator, setSimulator] = useState({
@@ -132,6 +176,20 @@ export default function App() {
 
   // Selected Model for Spec Drawer/Modal
   const [selectedModelDetails, setSelectedModelDetails] = useState<FlattenedModel | null>(null);
+
+  // Toggle simple mode and persist preference
+  const toggleSimpleMode = (value: boolean) => {
+    setIsSimpleMode(value);
+    localStorage.setItem('costes-api-simple-mode', String(value));
+    if (value) {
+      // Clear filters not available in simple mode
+      setSelectedModalities([]);
+      setMinContext(0);
+      if (SIMPLE_PROVIDERS.length > 0) {
+        setSelectedProviders(prev => prev.filter(id => SIMPLE_PROVIDERS.includes(id)));
+      }
+    }
+  };
 
   // Fetch Data on Load
   useEffect(() => {
@@ -273,10 +331,23 @@ export default function App() {
     return costPerCall * apiCalls;
   };
 
-  // Filter providers based on search query
+  // Filter providers based on search query and mode
   const filteredProvidersForSelect = useMemo(() => {
-    return providers.filter(p => p.name.toLowerCase().includes(providerSearch.toLowerCase()));
-  }, [providers, providerSearch]);
+    let list = providers;
+    // In simple mode, restrict to SIMPLE_PROVIDERS (if any defined)
+    if (isSimpleMode && SIMPLE_PROVIDERS.length > 0) {
+      list = list.filter(p => SIMPLE_PROVIDERS.includes(p.id));
+    }
+    return list.filter(p => p.name.toLowerCase().includes(providerSearch.toLowerCase()));
+  }, [providers, providerSearch, isSimpleMode]);
+
+  // Count of providers to display in the header/label
+  const displayProvidersCount = useMemo(() => {
+    if (isSimpleMode && SIMPLE_PROVIDERS.length > 0) {
+      return providers.filter(p => SIMPLE_PROVIDERS.includes(p.id)).length;
+    }
+    return providers.length;
+  }, [providers, isSimpleMode]);
 
   // Helper functions or constants can go here if needed
 
@@ -295,11 +366,28 @@ export default function App() {
       );
     }
 
-    // 2. Exclude Models Pre 2025-08-05 (Always active - no toggle)
-    result = result.filter(m => {
-      if (!m.release_date) return true; // keep if release date is unknown
-      return m.release_date >= '2025-08-05';
-    });
+    // 2. Date filter
+    if (isSimpleMode) {
+      // Simple mode: only last 4 months (dynamic)
+      const fourMonthsAgo = new Date();
+      fourMonthsAgo.setMonth(fourMonthsAgo.getMonth() - 4);
+      const cutoff = fourMonthsAgo.toISOString().split('T')[0];
+      result = result.filter(m => {
+        if (!m.release_date) return true; // keep if date unknown
+        return m.release_date >= cutoff;
+      });
+    } else {
+      // Complete mode (V1): fixed date filter
+      result = result.filter(m => {
+        if (!m.release_date) return true;
+        return m.release_date >= '2025-08-05';
+      });
+    }
+
+    // 2a. In simple mode with SIMPLE_PROVIDERS configured, filter by provider list
+    if (isSimpleMode && SIMPLE_PROVIDERS.length > 0) {
+      result = result.filter(m => SIMPLE_PROVIDERS.includes(m.providerId));
+    }
 
     // 2b. Exclude Paid Models
     if (onlyFreeModels) {
@@ -319,7 +407,7 @@ export default function App() {
     }
 
     // 4. Min Context Limit Filter
-    if (minContext > 0) {
+    if (!isSimpleMode && minContext > 0) {
       result = result.filter(m => m.limit.context >= minContext);
     }
 
@@ -374,12 +462,22 @@ export default function App() {
     });
 
     return result;
-  }, [allModels, searchQuery, selectedProviders, minContext, selectedCapabilities, selectedModalities, sortBy, simulator, onlyFreeModels]);
+  }, [allModels, searchQuery, selectedProviders, minContext, selectedCapabilities, selectedModalities, sortBy, simulator, onlyFreeModels, isSimpleMode]);
 
   // Models selected for comparison
   const comparisonModels = useMemo(() => {
-    return allModels.filter(m => comparisonList.includes(m.id));
-  }, [allModels, comparisonList]);
+    let list = allModels.filter(m => comparisonList.includes(m.id));
+    if (isSimpleMode) {
+      if (SIMPLE_PROVIDERS.length > 0) {
+        list = list.filter(m => SIMPLE_PROVIDERS.includes(m.providerId));
+      }
+      const fourMonthsAgo = new Date();
+      fourMonthsAgo.setMonth(fourMonthsAgo.getMonth() - 4);
+      const cutoff = fourMonthsAgo.toISOString().split('T')[0];
+      list = list.filter(m => !m.release_date || m.release_date >= cutoff);
+    }
+    return list;
+  }, [allModels, comparisonList, isSimpleMode]);
 
   // Toggle model in comparison list
   const toggleComparison = (id: string) => {
@@ -443,6 +541,19 @@ export default function App() {
         </nav>
 
         <div className="header-meta">
+          {/* Simple / Complete mode toggle */}
+          <div className="mode-toggle-wrapper" title={isSimpleMode ? 'Cambiar a Versión Completa' : 'Cambiar a Versión Simple'}>
+            <span className={`mode-label ${!isSimpleMode ? 'active-label' : ''}`}>Completa</span>
+            <button
+              className={`mode-toggle ${isSimpleMode ? 'simple' : 'complete'}`}
+              onClick={() => toggleSimpleMode(!isSimpleMode)}
+              aria-label="Cambiar modo"
+            >
+              <span className="mode-toggle-thumb" />
+            </button>
+            <span className={`mode-label ${isSimpleMode ? 'active-label' : ''}`}>Simple</span>
+          </div>
+
           <div className="api-status">
             <span className={`status-dot ${isLive ? 'live' : 'fallback'}`}></span>
             {isLive ? 'Datos en Vivo' : 'Datos Locales'}
@@ -512,9 +623,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Providers Checklist */}
           <div className="sidebar-section">
-            <label className="sidebar-title">Proveedores ({providers.length})</label>
+            <label className="sidebar-title">Proveedores ({isSimpleMode && SIMPLE_PROVIDERS.length > 0 ? displayProvidersCount : providers.length})</label>
             <input 
               type="text" 
               className="search-input" 
@@ -555,27 +665,29 @@ export default function App() {
           </div>
 
           {/* Context Window Limit Slider */}
-          <div className="sidebar-section">
-            <label className="sidebar-title">Límite de contexto mínimo</label>
-            <div className="range-container">
-              <input 
-                type="range" 
-                className="range-slider"
-                min="0" 
-                max="200000" 
-                step="4000"
-                value={minContext}
-                onChange={(e) => setMinContext(parseInt(e.target.value))}
-              />
-              <div className="range-labels">
-                <span>Cualquiera</span>
-                <span style={{ fontWeight: 600, color: 'var(--color-secondary)' }}>
-                  {formatContextSize(minContext)}
-                </span>
-                <span>200K+</span>
+          {!isSimpleMode && (
+            <div className="sidebar-section">
+              <label className="sidebar-title">Límite de contexto mínimo</label>
+              <div className="range-container">
+                <input 
+                  type="range" 
+                  className="range-slider"
+                  min="0" 
+                  max="200000" 
+                  step="4000"
+                  value={minContext}
+                  onChange={(e) => setMinContext(parseInt(e.target.value))}
+                />
+                <div className="range-labels">
+                  <span>Cualquiera</span>
+                  <span style={{ fontWeight: 600, color: 'var(--color-secondary)' }}>
+                    {formatContextSize(minContext)}
+                  </span>
+                  <span>200K+</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Capability Filters */}
           <div className="sidebar-section">
@@ -603,30 +715,32 @@ export default function App() {
             </div>
           </div>
 
-          {/* Modalities */}
-          <div className="sidebar-section">
-            <label className="sidebar-title">Modalidades de datos</label>
-            <div className="tags-container">
-              {[
-                { id: 'image', label: 'Imágenes (Visión)' },
-                { id: 'audio', label: 'Audio' },
-                { id: 'video', label: 'Video' },
-                { id: 'pdf', label: 'Documentos PDF' }
-              ].map(mod => (
-                <button
-                  key={mod.id}
-                  className={`filter-tag ${selectedModalities.includes(mod.id) ? 'active' : ''}`}
-                  onClick={() => {
-                    setSelectedModalities(prev =>
-                      prev.includes(mod.id) ? prev.filter(id => id !== mod.id) : [...prev, mod.id]
-                    );
-                  }}
-                >
-                  {mod.label}
-                </button>
-              ))}
+          {/* Modalities — hidden in simple mode */}
+          {!isSimpleMode && (
+            <div className="sidebar-section">
+              <label className="sidebar-title">Modalidades de datos</label>
+              <div className="tags-container">
+                {[
+                  { id: 'image', label: 'Imágenes (Visión)' },
+                  { id: 'audio', label: 'Audio' },
+                  { id: 'video', label: 'Video' },
+                  { id: 'pdf', label: 'Documentos PDF' }
+                ].map(mod => (
+                  <button
+                    key={mod.id}
+                    className={`filter-tag ${selectedModalities.includes(mod.id) ? 'active' : ''}`}
+                    onClick={() => {
+                      setSelectedModalities(prev =>
+                        prev.includes(mod.id) ? prev.filter(id => id !== mod.id) : [...prev, mod.id]
+                      );
+                    }}
+                  >
+                    {mod.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Cost Simulator */}
           <div className="sidebar-section" style={{ marginTop: 'auto' }}>
