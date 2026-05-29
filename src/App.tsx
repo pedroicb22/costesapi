@@ -186,16 +186,25 @@ const cleanName = (name: string): string => {
   return cleaned.trim();
 };
 
+const formatPrice = (val: number): string => {
+  const absVal = Math.abs(val);
+  if (absVal === 0) return '0.00';
+  if (absVal > 0 && absVal < 0.01) {
+    return val.toFixed(3);
+  }
+  return val.toFixed(2);
+};
+
 const formatCostRange = (min: number, max: number) => {
   if (min === 0 && max === 0) return 'Gratis';
-  if (min === max) return `$${min.toFixed(2)}`;
-  return `$${min.toFixed(2)} - $${max.toFixed(2)}`;
+  if (min === max) return `$${formatPrice(min)}`;
+  return `$${formatPrice(min)} - $${formatPrice(max)}`;
 };
 
 const formatSimulatedCostRange = (min: number, max: number) => {
-  if (min === 0 && max === 0) return '$0.0000';
-  if (min === max) return `$${min.toFixed(4)}`;
-  return `$${min.toFixed(4)} - $${max.toFixed(4)}`;
+  if (min === 0 && max === 0) return '$0.00';
+  if (min === max) return `$${formatPrice(min)}`;
+  return `$${formatPrice(min)} - $${formatPrice(max)}`;
 };
 
 export default function App() {
@@ -670,19 +679,19 @@ export default function App() {
           <div className="cost-row">
             <span>Entrada (1M tokens)</span>
             <span className="cost-value">
-              {model.cost.input > 0 ? `$${model.cost.input.toFixed(2)}` : 'Gratis / ND'}
+              {model.cost.input > 0 ? `$${formatPrice(model.cost.input)}` : 'Gratis / ND'}
             </span>
           </div>
           <div className="cost-row">
             <span>Salida (1M tokens)</span>
             <span className="cost-value">
-              {model.cost.output > 0 ? `$${model.cost.output.toFixed(2)}` : 'Gratis / ND'}
+              {model.cost.output > 0 ? `$${formatPrice(model.cost.output)}` : 'Gratis / ND'}
             </span>
           </div>
           {model.reasoning && model.cost.reasoning !== model.cost.output && (
             <div className="cost-row" style={{ borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '2px', marginTop: '2px' }}>
               <span>Razonamiento (1M)</span>
-              <span className="cost-value">${model.cost.reasoning.toFixed(2)}</span>
+              <span className="cost-value">${formatPrice(model.cost.reasoning)}</span>
             </div>
           )}
         </div>
@@ -690,7 +699,7 @@ export default function App() {
         <div className="simulated-result">
           <span className="sim-label">Coste Simulación:</span>
           <span className="sim-cost-amount">
-            {hasCost ? `$${simCost.toFixed(4)}` : '$0.0000'}
+            {hasCost ? `$${formatPrice(simCost)}` : '$0.00'}
           </span>
         </div>
 
@@ -1347,7 +1356,7 @@ export default function App() {
                               const cost = calculateSimulatedCost(model);
                               return (
                                 <td key={model.id} className="comparison-model-cell" style={{ fontWeight: '800', fontSize: '1.1rem', color: '#fff', textShadow: '0 0 10px rgba(139,92,246,0.3)' }}>
-                                  ${cost.toFixed(4)}
+                                  ${formatPrice(cost)}
                                 </td>
                               );
                             })}
@@ -1358,7 +1367,7 @@ export default function App() {
                             <td className="header-column">Precio Entrada (1M tokens)</td>
                             {comparisonModels.map(model => (
                               <td key={model.id} className="comparison-model-cell comp-value-mono">
-                                ${model.cost.input.toFixed(2)}
+                                ${formatPrice(model.cost.input)}
                               </td>
                             ))}
                           </tr>
@@ -1368,7 +1377,7 @@ export default function App() {
                             <td className="header-column">Precio Salida (1M tokens)</td>
                             {comparisonModels.map(model => (
                               <td key={model.id} className="comparison-model-cell comp-value-mono">
-                                ${model.cost.output.toFixed(2)}
+                                ${formatPrice(model.cost.output)}
                               </td>
                             ))}
                           </tr>
@@ -1378,7 +1387,7 @@ export default function App() {
                             <td className="header-column">Precio Razonamiento (1M)</td>
                             {comparisonModels.map(model => (
                               <td key={model.id} className="comparison-model-cell comp-value-mono">
-                                ${model.cost.reasoning.toFixed(2)}
+                                ${formatPrice(model.cost.reasoning)}
                               </td>
                             ))}
                           </tr>
@@ -1388,7 +1397,7 @@ export default function App() {
                             <td className="header-column">Lectura de Caché (1M)</td>
                             {comparisonModels.map(model => (
                               <td key={model.id} className="comparison-model-cell comp-value-mono">
-                                ${model.cost.cache_read.toFixed(2)}
+                                ${formatPrice(model.cost.cache_read)}
                               </td>
                             ))}
                           </tr>
@@ -1398,7 +1407,7 @@ export default function App() {
                             <td className="header-column">Escritura de Caché (1M)</td>
                             {comparisonModels.map(model => (
                               <td key={model.id} className="comparison-model-cell comp-value-mono">
-                                ${model.cost.cache_write.toFixed(2)}
+                                ${formatPrice(model.cost.cache_write)}
                               </td>
                             ))}
                           </tr>
@@ -1553,7 +1562,7 @@ export default function App() {
                                   <g key={idx}>
                                     <line x1={x} y1={10} x2={x} y2={svgH - 25} className="svg-grid-line" />
                                     <text x={x} y={svgH - 10} textAnchor="middle" className="svg-text-label" style={{ fontSize: '9px' }}>
-                                      ${(ratio * maxVal).toFixed(2)}
+                                      ${formatPrice(ratio * maxVal)}
                                     </text>
                                   </g>
                                 );
@@ -1586,7 +1595,7 @@ export default function App() {
                                     
                                     {/* Value label */}
                                     <text x={160 + barW + 8} y={y + 14} className="svg-text-value">
-                                      ${m.cost.input.toFixed(2)}
+                                      ${formatPrice(m.cost.input)}
                                     </text>
                                   </g>
                                 );
@@ -1636,7 +1645,7 @@ export default function App() {
                                   <g key={idx}>
                                     <line x1={x} y1={10} x2={x} y2={svgH - 25} className="svg-grid-line" />
                                     <text x={x} y={svgH - 10} textAnchor="middle" className="svg-text-label" style={{ fontSize: '9px' }}>
-                                      ${(ratio * maxVal).toFixed(2)}
+                                      ${formatPrice(ratio * maxVal)}
                                     </text>
                                   </g>
                                 );
@@ -1669,7 +1678,7 @@ export default function App() {
                                     
                                     {/* Value label */}
                                     <text x={160 + barW + 8} y={y + 14} className="svg-text-value">
-                                      ${m.cost.output.toFixed(2)}
+                                      ${formatPrice(m.cost.output)}
                                     </text>
                                   </g>
                                 );
@@ -1808,27 +1817,27 @@ export default function App() {
                 <div className="detail-grid-modal">
                   <div className="detail-item-modal">
                     <span className="detail-label-modal">Costo de Entrada</span>
-                    <span className="detail-val-modal mono">${selectedModelDetails.cost.input.toFixed(2)}</span>
+                    <span className="detail-val-modal mono">${formatPrice(selectedModelDetails.cost.input)}</span>
                   </div>
                   <div className="detail-item-modal">
                     <span className="detail-label-modal">Costo de Salida</span>
-                    <span className="detail-val-modal mono">${selectedModelDetails.cost.output.toFixed(2)}</span>
+                    <span className="detail-val-modal mono">${formatPrice(selectedModelDetails.cost.output)}</span>
                   </div>
                   <div className="detail-item-modal">
                     <span className="detail-label-modal">Costo de Razonamiento (CoT)</span>
-                    <span className="detail-val-modal mono">${selectedModelDetails.cost.reasoning.toFixed(2)}</span>
+                    <span className="detail-val-modal mono">${formatPrice(selectedModelDetails.cost.reasoning)}</span>
                   </div>
                   <div className="detail-item-modal">
                     <span className="detail-label-modal">Costo Lectura de Caché</span>
-                    <span className="detail-val-modal mono">${selectedModelDetails.cost.cache_read.toFixed(2)}</span>
+                    <span className="detail-val-modal mono">${formatPrice(selectedModelDetails.cost.cache_read)}</span>
                   </div>
                   <div className="detail-item-modal">
                     <span className="detail-label-modal">Costo Escritura de Caché</span>
-                    <span className="detail-val-modal mono">${selectedModelDetails.cost.cache_write.toFixed(2)}</span>
+                    <span className="detail-val-modal mono">${formatPrice(selectedModelDetails.cost.cache_write)}</span>
                   </div>
                   <div className="detail-item-modal">
                     <span className="detail-label-modal">Costo Entrada de Audio</span>
-                    <span className="detail-val-modal mono">${selectedModelDetails.cost.input_audio.toFixed(2)}</span>
+                    <span className="detail-val-modal mono">${formatPrice(selectedModelDetails.cost.input_audio)}</span>
                   </div>
                 </div>
               </div>
