@@ -132,6 +132,72 @@ const SIMPLE_PROVIDERS: string[] = [
   "zai-coding-plan"
 ];
 
+interface GroupedModel {
+  groupKey: string;
+  name: string;
+  models: FlattenedModel[];
+  minInputCost: number;
+  maxInputCost: number;
+  minOutputCost: number;
+  maxOutputCost: number;
+  minSimulatedCost: number;
+  maxSimulatedCost: number;
+  contextSize: number;
+  capabilities: {
+    reasoning: boolean;
+    tool_call: boolean;
+    attachment: boolean;
+    open_weights: boolean;
+    structured_output: boolean;
+  };
+  modalities: {
+    input: string[];
+    output: string[];
+  };
+}
+
+// Normalization function to group similar models together
+const normalizeModelName = (name: string): string => {
+  let norm = name.toLowerCase();
+  
+  // 1. Remove provider prefixes like "Anthropic:", "OpenAI:", etc.
+  norm = norm.replace(/^(anthropic|openai|google|meta|mistral|cohere|replicate|groq|nvidia|amazon|azure|poe|helicone|qiniu|iflow|auriko|nanogpt|abacus|jiekou\.ai|llm gateway)\s*[:\s-]\s*/i, "");
+  
+  // 2. Remove region/variant suffixes in parentheses, e.g. (JP), (Global), (US), (EU), (20250805), (32K), (8K), etc.
+  norm = norm.replace(/\s*\([^)]*\)/g, "");
+  
+  // 3. Remove standalone region tags from the end of the string
+  norm = norm.replace(/\b(global|us|eu|jp|au|asia|pacific|east|west|north|south|central)\b/g, "");
+  
+  // 4. Replace hyphens, underscores, colons with spaces
+  norm = norm.replace(/[-_:]/g, " ");
+  
+  // 5. Trim and collapse spaces
+  norm = norm.trim().replace(/\s+/g, " ");
+  
+  return norm;
+};
+
+// Clean name to display a clean model title for the group card
+const cleanName = (name: string): string => {
+  let cleaned = name;
+  cleaned = cleaned.replace(/^(anthropic|openai|google|meta|mistral|cohere|replicate|groq|nvidia|amazon|azure|poe|helicone|qiniu|iflow|auriko|nanogpt|abacus|jiekou\.ai|llm gateway)\s*[:\s-]\s*/i, "");
+  cleaned = cleaned.replace(/\s*\([^)]*\)/g, "");
+  return cleaned.trim();
+};
+
+const formatCostRange = (min: number, max: number) => {
+  if (min === 0 && max === 0) return 'Gratis';
+  if (min === max) return `$${min.toFixed(2)}`;
+  return `$${min.toFixed(2)} - $${max.toFixed(2)}`;
+};
+
+const formatSimulatedCostRange = (min: number, max: number) => {
+  if (min === 0 && max === 0) return '$0.0000';
+  if (min === max) return `$${min.toFixed(4)}`;
+  return `$${min.toFixed(4)} - $${max.toFixed(4)}`;
+};
+
 export default function App() {
   // Application State
   const [allModels, setAllModels] = useState<FlattenedModel[]>([]);
@@ -177,6 +243,9 @@ export default function App() {
 
   // Selected Model for Spec Drawer/Modal
   const [selectedModelDetails, setSelectedModelDetails] = useState<FlattenedModel | null>(null);
+
+  // Selected Model Group for Mobile / Simple Mode Overlay
+  const [selectedGroupForOverlay, setSelectedGroupForOverlay] = useState<GroupedModel | null>(null);
 
   // Toggle simple mode and persist preference
   const toggleSimpleMode = (value: boolean) => {
@@ -465,6 +534,69 @@ export default function App() {
     return result;
   }, [allModels, searchQuery, selectedProviders, minContext, selectedCapabilities, selectedModalities, sortBy, simulator, onlyFreeModels, isSimpleMode]);
 
+  // Group similar models in simple mode to avoid visual noise from provider duplicates
+  const groupedModels = useMemo(() => {
+    if (!isSimpleMode) return [];
+
+    const groupsMap = new Map<string, FlattenedModel[]>();
+    processedModels.forEach(model => {
+      const key = normalizeModelName(model.name);
+      if (!groupsMap.has(key)) {
+        groupsMap.set(key, []);
+      }
+      groupsMap.get(key)!.push(model);
+    });
+
+    const list: GroupedModel[] = [];
+    groupsMap.forEach((models, groupKey) => {
+      const name = cleanName(models[0].name);
+
+      const inputCosts = models.map(m => m.cost.input);
+      const outputCosts = models.map(m => m.cost.output);
+      const simulatedCosts = models.map(m => calculateSimulatedCost(m));
+
+      const minInputCost = Math.min(...inputCosts);
+      const maxInputCost = Math.max(...inputCosts);
+      const minOutputCost = Math.min(...outputCosts);
+      const maxOutputCost = Math.max(...outputCosts);
+      const minSimulatedCost = Math.min(...simulatedCosts);
+      const maxSimulatedCost = Math.max(...simulatedCosts);
+
+      const contextSize = Math.max(...models.map(m => m.limit.context));
+
+      const capabilities = {
+        reasoning: models.some(m => m.reasoning),
+        tool_call: models.some(m => m.tool_call),
+        attachment: models.some(m => m.attachment),
+        open_weights: models.some(m => m.open_weights),
+        structured_output: models.some(m => m.structured_output),
+      };
+
+      const inputModalities = Array.from(new Set(models.flatMap(m => m.modalities.input)));
+      const outputModalities = Array.from(new Set(models.flatMap(m => m.modalities.output)));
+
+      list.push({
+        groupKey,
+        name,
+        models,
+        minInputCost,
+        maxInputCost,
+        minOutputCost,
+        maxOutputCost,
+        minSimulatedCost,
+        maxSimulatedCost,
+        contextSize,
+        capabilities,
+        modalities: {
+          input: inputModalities,
+          output: outputModalities
+        }
+      });
+    });
+
+    return list;
+  }, [processedModels, isSimpleMode, simulator]);
+
   // Models selected for comparison
   const comparisonModels = useMemo(() => {
     let list = allModels.filter(m => comparisonList.includes(m.id));
@@ -502,11 +634,216 @@ export default function App() {
       [key]: value
     }));
   };
-
   // Helper to check if fallback image is needed
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     e.currentTarget.src = 'https://models.dev/logos/openai.svg'; // default logo fallback
     e.currentTarget.style.filter = 'grayscale(1) opacity(0.5)';
+  };
+
+  const renderModelCard = (model: FlattenedModel) => {
+    const simCost = calculateSimulatedCost(model);
+    const hasCost = model.cost.input > 0 || model.cost.output > 0;
+
+    return (
+      <div key={model.id} className="model-card">
+        <div className="card-header">
+          <div className="model-info-block">
+            <div className="provider-logo-row">
+              <img 
+                className="provider-mini-logo" 
+                src={`${import.meta.env.BASE_URL}logos/${model.providerId}.svg`} 
+                alt={model.providerName}
+                onError={handleImageError}
+              />
+              <span>{model.providerName}</span>
+            </div>
+            <div className="model-name" title={model.name}>
+              {model.name}
+            </div>
+          </div>
+          {model.open_weights && (
+            <span className="open-weights-badge">Pesos Libres</span>
+          )}
+        </div>
+
+        <div className="cost-display">
+          <div className="cost-row">
+            <span>Entrada (1M tokens)</span>
+            <span className="cost-value">
+              {model.cost.input > 0 ? `$${model.cost.input.toFixed(2)}` : 'Gratis / ND'}
+            </span>
+          </div>
+          <div className="cost-row">
+            <span>Salida (1M tokens)</span>
+            <span className="cost-value">
+              {model.cost.output > 0 ? `$${model.cost.output.toFixed(2)}` : 'Gratis / ND'}
+            </span>
+          </div>
+          {model.reasoning && model.cost.reasoning !== model.cost.output && (
+            <div className="cost-row" style={{ borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '2px', marginTop: '2px' }}>
+              <span>Razonamiento (1M)</span>
+              <span className="cost-value">${model.cost.reasoning.toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="simulated-result">
+          <span className="sim-label">Coste Simulación:</span>
+          <span className="sim-cost-amount">
+            {hasCost ? `$${simCost.toFixed(4)}` : '$0.0000'}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          <div className="card-details-row">
+            <span>Contexto</span>
+            <span className="card-details-val">{formatContextSize(model.limit.context)} tokens</span>
+          </div>
+          {model.knowledge && (
+            <div className="card-details-row">
+              <span>Conocimiento cutoff</span>
+              <span className="card-details-val">{model.knowledge}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="card-badges">
+          <span className={`mini-badge ${model.reasoning ? 'active' : ''}`}>Reasoning</span>
+          <span className={`mini-badge ${model.tool_call ? 'active' : ''}`}>Tool Use</span>
+          <span className={`mini-badge ${model.structured_output ? 'active' : ''}`}>Struct Output</span>
+          <span className={`mini-badge ${model.modalities.input.includes('image') ? 'active' : ''}`}>Vision</span>
+          <span className={`mini-badge ${model.modalities.input.includes('audio') ? 'active' : ''}`}>Audio</span>
+        </div>
+
+        <div className="card-actions">
+          <button 
+            className={`btn ${comparisonList.includes(model.id) ? 'btn-active-compare' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleComparison(model.id);
+            }}
+          >
+            {comparisonList.includes(model.id) ? '✓ Comparando' : '+ Comparar'}
+          </button>
+          <button 
+            className="btn btn-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedModelDetails(model);
+            }}
+          >
+            Ficha Técnica
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGroupCard = (group: GroupedModel) => {
+    return (
+      <div 
+        key={group.groupKey} 
+        className="model-card group-card" 
+        style={{ cursor: 'pointer' }}
+        onClick={() => setSelectedGroupForOverlay(group)}
+      >
+        <div className="card-header">
+          <div className="model-info-block">
+            <div className="provider-logo-row" style={{ display: 'flex', alignItems: 'center' }}>
+              {group.models.slice(0, 5).map(m => (
+                <img 
+                  key={m.id}
+                  className="provider-mini-logo" 
+                  src={`${import.meta.env.BASE_URL}logos/${m.providerId}.svg`} 
+                  alt={m.providerName}
+                  title={m.providerName}
+                  onError={handleImageError}
+                  style={{ marginRight: '-8px', border: '2px solid rgba(13, 12, 19, 0.95)', borderRadius: '50%', background: '#fff', padding: '1px' }}
+                />
+              ))}
+              {group.models.length > 5 && (
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '12px' }}>
+                  +{group.models.length - 5}
+                </span>
+              )}
+              {group.models.length <= 5 && (
+                <span style={{ marginLeft: '12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {group.models.length === 1 ? group.models[0].providerName : `${group.models.length} proveedores`}
+                </span>
+              )}
+            </div>
+            <div className="model-name" title={group.name} style={{ marginTop: '0.4rem' }}>
+              {group.name}
+            </div>
+          </div>
+          {group.capabilities.open_weights && (
+            <span className="open-weights-badge">Pesos Libres</span>
+          )}
+        </div>
+
+        <div className="cost-display">
+          <div className="cost-row">
+            <span>Entrada (1M tokens)</span>
+            <span className="cost-value">
+              {formatCostRange(group.minInputCost, group.maxInputCost)}
+            </span>
+          </div>
+          <div className="cost-row">
+            <span>Salida (1M tokens)</span>
+            <span className="cost-value">
+              {formatCostRange(group.minOutputCost, group.maxOutputCost)}
+            </span>
+          </div>
+        </div>
+
+        <div className="simulated-result">
+          <span className="sim-label">Coste Simulación:</span>
+          <span className="sim-cost-amount">
+            {formatSimulatedCostRange(group.minSimulatedCost, group.maxSimulatedCost)}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          <div className="card-details-row">
+            <span>Contexto</span>
+            <span className="card-details-val">{formatContextSize(group.contextSize)} tokens</span>
+          </div>
+        </div>
+
+        <div className="card-badges">
+          <span className={`mini-badge ${group.capabilities.reasoning ? 'active' : ''}`}>Reasoning</span>
+          <span className={`mini-badge ${group.capabilities.tool_call ? 'active' : ''}`}>Tool Use</span>
+          <span className={`mini-badge ${group.capabilities.structured_output ? 'active' : ''}`}>Struct Output</span>
+          <span className={`mini-badge ${group.modalities.input.includes('image') ? 'active' : ''}`}>Vision</span>
+          <span className={`mini-badge ${group.modalities.input.includes('audio') ? 'active' : ''}`}>Audio</span>
+        </div>
+
+        <div style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 600, marginTop: '0.2rem', marginBottom: '0.2rem' }}>
+          {group.models.length > 1 ? `⚡ ${group.models.length} opciones disponibles. Pulsa para verlas.` : '1 proveedor disponible.'}
+        </div>
+
+        <div className="card-actions">
+          <button 
+            className={`btn ${group.models.some(m => comparisonList.includes(m.id)) ? 'btn-active-compare' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleComparison(group.models[0].id);
+            }}
+          >
+            {group.models.some(m => comparisonList.includes(m.id)) ? '✓ Comparando' : '+ Comparar'}
+          </button>
+          <button 
+            className="btn btn-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedModelDetails(group.models[0]);
+            }}
+          >
+            Ficha Técnica
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -898,7 +1235,7 @@ export default function App() {
                 <>
                   <div className="explorer-header-actions">
                     <div className="models-count">
-                      Mostrando <span>{processedModels.length}</span> de {allModels.length} modelos disponibles
+                      Mostrando <span>{isSimpleMode ? groupedModels.length : processedModels.length}</span> de {allModels.length} modelos disponibles
                     </div>
                     
                     <div className="sort-select-container">
@@ -929,98 +1266,10 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="models-grid">
-                      {processedModels.slice(0, 100).map(model => {
-                        const simCost = calculateSimulatedCost(model);
-                        const hasCost = model.cost.input > 0 || model.cost.output > 0;
-
-                        return (
-                          <div key={model.id} className="model-card">
-                            <div className="card-header">
-                              <div className="model-info-block">
-                                <div className="provider-logo-row">
-                                  <img 
-                                    className="provider-mini-logo" 
-                                    src={`https://models.dev/logos/${model.providerId}.svg`} 
-                                    alt={model.providerName}
-                                    onError={handleImageError}
-                                  />
-                                  <span>{model.providerName}</span>
-                                </div>
-                                <div className="model-name" title={model.name}>
-                                  {model.name}
-                                </div>
-                              </div>
-                              {model.open_weights && (
-                                <span className="open-weights-badge">Pesos Libres</span>
-                              )}
-                            </div>
-
-                            <div className="cost-display">
-                              <div className="cost-row">
-                                <span>Entrada (1M tokens)</span>
-                                <span className="cost-value">
-                                  {model.cost.input > 0 ? `$${model.cost.input.toFixed(2)}` : 'Gratis / ND'}
-                                </span>
-                              </div>
-                              <div className="cost-row">
-                                <span>Salida (1M tokens)</span>
-                                <span className="cost-value">
-                                  {model.cost.output > 0 ? `$${model.cost.output.toFixed(2)}` : 'Gratis / ND'}
-                                </span>
-                              </div>
-                              {model.reasoning && model.cost.reasoning !== model.cost.output && (
-                                <div className="cost-row" style={{ borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '2px', marginTop: '2px' }}>
-                                  <span>Razonamiento (1M)</span>
-                                  <span className="cost-value">${model.cost.reasoning.toFixed(2)}</span>
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="simulated-result">
-                              <span className="sim-label">Coste Simulación:</span>
-                              <span className="sim-cost-amount">
-                                {hasCost ? `$${simCost.toFixed(4)}` : '$0.0000'}
-                              </span>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                              <div className="card-details-row">
-                                <span>Contexto</span>
-                                <span className="card-details-val">{formatContextSize(model.limit.context)} tokens</span>
-                              </div>
-                              {model.knowledge && (
-                                <div className="card-details-row">
-                                  <span>Conocimiento cutoff</span>
-                                  <span className="card-details-val">{model.knowledge}</span>
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="card-badges">
-                              <span className={`mini-badge ${model.reasoning ? 'active' : ''}`}>Reasoning</span>
-                              <span className={`mini-badge ${model.tool_call ? 'active' : ''}`}>Tool Use</span>
-                              <span className={`mini-badge ${model.structured_output ? 'active' : ''}`}>Struct Output</span>
-                              <span className={`mini-badge ${model.modalities.input.includes('image') ? 'active' : ''}`}>Vision</span>
-                              <span className={`mini-badge ${model.modalities.input.includes('audio') ? 'active' : ''}`}>Audio</span>
-                            </div>
-
-                            <div className="card-actions">
-                              <button 
-                                className={`btn ${comparisonList.includes(model.id) ? 'btn-active-compare' : ''}`}
-                                onClick={() => toggleComparison(model.id)}
-                              >
-                                {comparisonList.includes(model.id) ? '✓ Comparando' : '+ Comparar'}
-                              </button>
-                              <button 
-                                className="btn btn-primary"
-                                onClick={() => setSelectedModelDetails(model)}
-                              >
-                                Ficha Técnica
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                      {isSimpleMode 
+                        ? groupedModels.slice(0, 100).map(renderGroupCard) 
+                        : processedModels.slice(0, 100).map(renderModelCard)
+                      }
                     </div>
                   )}
 
@@ -1650,6 +1899,27 @@ const { text } = await generateText({
                     {JSON.stringify(selectedModelDetails, null, 2)}
                   </pre>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Provider Options Overlay (Simple Mode Model Grouping) */}
+      {selectedGroupForOverlay && (
+        <div className="group-overlay-backdrop" onClick={() => setSelectedGroupForOverlay(null)}>
+          <div className="group-overlay-content" onClick={(e) => e.stopPropagation()}>
+            <div className="group-overlay-header">
+              <div>
+                <h2>Proveedores de {selectedGroupForOverlay.name}</h2>
+                <p>{selectedGroupForOverlay.models.length} opciones disponibles para este modelo</p>
+              </div>
+              <button className="group-overlay-close-btn" onClick={() => setSelectedGroupForOverlay(null)} aria-label="Cerrar">
+                ✕
+              </button>
+            </div>
+            <div className="group-overlay-body">
+              <div className="models-grid">
+                {selectedGroupForOverlay.models.map(renderModelCard)}
               </div>
             </div>
           </div>

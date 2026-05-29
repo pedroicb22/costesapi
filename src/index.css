@@ -1077,7 +1077,7 @@ a:hover {
   bottom: 0;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(8px);
-  z-index: 100;
+  z-index: 1300;
   display: flex;
   justify-content: flex-end;
 }
@@ -1536,4 +1536,195 @@ a:hover {
     transform: translateX(14px);
   }
 }
+
+/* ============================================================
+   GROUPED MODELS AND PROVIDER OVERLAY STYLING
+   ============================================================ */
+
+/* Grouped Model Card Hover Polish */
+.group-card {
+  transition: all var(--transition-normal);
+  border: 1px dashed rgba(139, 92, 246, 0.3); /* Distinguish grouped cards with a dashed border */
+}
+
+.group-card:hover {
+  border: 1px solid var(--color-primary);
+  box-shadow: 0 12px 40px rgba(139, 92, 246, 0.15), 0 0 20px rgba(139, 92, 246, 0.1);
+  transform: translateY(-5px);
+}
+
+.group-card:hover .provider-mini-logo {
+  transform: scale(1.15) translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.provider-mini-logo {
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.25s ease;
+}
+
+/* Overlay Backdrop */
+.group-overlay-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(8, 7, 12, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  animation: groupOverlayFadeIn 0.3s ease-out forwards;
+}
+
+/* Overlay Content Container */
+.group-overlay-content {
+  width: 100%;
+  max-width: 1100px;
+  max-height: 85vh;
+  background: rgba(20, 18, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 50px rgba(139, 92, 246, 0.15);
+  overflow: hidden;
+  position: relative;
+  animation: groupOverlaySlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Overlay Header */
+.group-overlay-header {
+  padding: 1.5rem 2.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.group-overlay-header h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(135deg, #ffffff 40%, var(--color-primary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.group-overlay-header p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0.25rem 0 0 0;
+}
+
+/* Overlay Close Button */
+.group-overlay-close-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.group-overlay-close-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  transform: scale(1.05) rotate(90deg);
+}
+
+.group-overlay-close-btn:active {
+  transform: scale(0.95);
+}
+
+/* Overlay Body */
+.group-overlay-body {
+  padding: 2.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.group-overlay-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.group-overlay-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.group-overlay-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.group-overlay-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Animations */
+@keyframes groupOverlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes groupOverlaySlideUp {
+  from {
+    transform: translateY(40px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes groupOverlayMobileSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Overrides */
+@media (max-width: 768px) {
+  .group-overlay-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .group-overlay-content {
+    max-height: 85vh;
+    border-radius: 24px 24px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    animation: groupOverlayMobileSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .group-overlay-header {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .group-overlay-header h2 {
+    font-size: 1.3rem;
+  }
+
+  .group-overlay-body {
+    padding: 1.5rem 1.25rem;
+  }
+}
+
 
